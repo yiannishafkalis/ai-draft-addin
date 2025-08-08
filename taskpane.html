@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Draft with AI</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge"/>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 12px; }
+    .row { margin: 8px 0; }
+    button { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+    input, textarea { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+    small { color: #666; }
+  </style>
+</head>
+<body>
+  <h3>Draft with AI</h3>
+  <div class="row"><small>Signed-in user: <span id="upn">…</span></small></div>
+  <div class="row"><label>n8n Webhook URL <small>(https://…)</small></label><input id="webhook" placeholder="https://YOUR-N8N-DOMAIN/webhook/ai-draft"/></div>
+  <div class="row"><button id="trigger">Create AI Draft</button></div>
+  <div class="row"><small id="status"></small></div>
+
+  <script>
+    function setStatus(msg){ document.getElementById('status').textContent = msg; }
+    Office.onReady(() => {
+      try {
+        const upn = Office.context?.mailbox?.userProfile?.emailAddress || "";
+        document.getElementById('upn').textContent = upn || "(unknown)";
+        document.getElementById('trigger').onclick = async () => {
+          setStatus("Collecting message context…");
+          const item = Office.context.mailbox.item;
+          const payload = {
+            upn,
+            subject: item?.subject || "",
+            itemId: item?.itemId || "",
+            internetMessageId: item?.internetMessageId || ""
+          };
+          const url = document.getElementById('webhook').value.trim();
+          if (!url) { setStatus("Please enter your n8n Webhook URL."); return; }
+          try {
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              setStatus("Webhook sent. Check your Drafts shortly.");
+            } else {
+              const txt = await res.text();
+              setStatus("Webhook error: " + res.status + " " + txt);
+            }
+          } catch (e) {
+            setStatus("Network error: " + e.message);
+          }
+        };
+      } catch (e) {
+        setStatus("Init error: " + e.message);
+      }
+    });
+  </script>
+</body>
+</html>
